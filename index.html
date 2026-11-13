@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Love Elementary Lunch Menu</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main id="app">
+  <header class="page-head">
+    <h1>Love Elementary</h1>
+    <p class="sub">Lunch &amp; breakfast menus · Alameda Unified</p>
+  </header>
+
+  <section id="hero" class="hero" aria-live="polite"></section>
+
+  <div class="tablist" role="tablist" aria-label="Meal">
+    <button id="tab-breakfast" class="tab" role="tab" aria-selected="false">Breakfast</button>
+    <button id="tab-lunch" class="tab" role="tab" aria-selected="true">Lunch</button>
+  </div>
+
+  <div id="months"></div>
+  <p id="status" class="status" aria-live="polite"></p>
+  <footer class="foot" id="foot"></footer>
+</main>
+<script src="supabase-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
