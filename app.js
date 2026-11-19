@@ -79,12 +79,12 @@
     });
   }
 
-  // Next school lunch on or after today (skips no-school days).
-  function nextLunch() {
+  // Next school meal on or after today (skips no-school days).
+  function nextMeal(meal) {
     var today = todayStr();
     var months = (state.manifest || { months: [] }).months;
     for (var k = 0; k < months.length; k++) {
-      var doc = (state.data[months[k].id] || {}).lunch;
+      var doc = (state.data[months[k].id] || {})[meal];
       if (!doc || !doc.days) continue;
       var dates = Object.keys(doc.days).sort();
       for (var i = 0; i < dates.length; i++) {
@@ -99,12 +99,13 @@
 
   function renderHero() {
     var el = $('hero');
-    var next = nextLunch();
+    var meal = state.meal;
+    var next = nextMeal(meal);
     if (!next) {
-      el.innerHTML = '<p class="empty">No lunch menu posted yet for the days ahead.</p>';
+      el.innerHTML = '<p class="empty">No ' + meal + ' menu posted yet for the days ahead.</p>';
       return;
     }
-    var label = next.date === todayStr() ? "Today's lunch" : 'Next lunch · ' + fmtDate(next.date);
+    var label = next.date === todayStr() ? "Today's " + meal : 'Next ' + meal + ' · ' + fmtDate(next.date);
     var html = '<p class="kicker">' + esc(label) + '</p>'
       + '<p class="items">' + next.day.items.map(esc).join(' <span aria-hidden="true">·</span> ') + '</p>';
     if (next.day.salad_bar) html += '<p class="salad">Salad bar: ' + esc(next.day.salad_bar) + '</p>';
