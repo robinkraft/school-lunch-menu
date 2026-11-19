@@ -68,7 +68,8 @@
         state.data[m.id] = state.data[m.id] || {};
         ['lunch', 'breakfast'].forEach(function (meal) {
           if (m[meal]) {
-            jobs.push(fetchJson(m[meal]).then(function (d) { state.data[m.id][meal] = d; })
+            var fileUrl = cacheBust ? m[meal] + '?v=' + Date.now() : m[meal];
+            jobs.push(fetchJson(fileUrl).then(function (d) { state.data[m.id][meal] = d; })
               .catch(function () { state.data[m.id][meal] = null; }));
           } else {
             state.data[m.id][meal] = null;
@@ -195,15 +196,18 @@
       if (pick) { togglePick(pick.dataset.meal, pick.dataset.date, pick.dataset.item); return; }
       var check = ev.target.closest('[data-check-now]');
       if (check) {
+        var section = check.closest('.month');
+        var monthId = section ? section.id.replace('month-', '') : null;
+        var monthLabel = monthId || '';
+        (state.manifest.months || []).forEach(function (m) { if (m.id === monthId) monthLabel = m.label; });
         setStatus('Checking the district site…');
         loadAll(true).then(function () {
           render();
-          var months = state.manifest.months;
-          var posted = months.some(function (m) {
-            var doc = (state.data[m.id] || {})[state.meal];
-            return doc && doc.days && Object.keys(doc.days).length > 0;
-          });
-          setStatus('Checked just now — ' + (posted ? 'a menu is posted.' : 'still not posted.'));
+          var month = null;
+          (state.manifest.months || []).forEach(function (m) { if (m.id === monthId) month = m; });
+          var doc = month ? (state.data[month.id] || {})[state.meal] : null;
+          var posted = doc && doc.days && Object.keys(doc.days).length > 0;
+          setStatus('Checked just now — ' + (posted ? monthLabel + '’s ' + state.meal + ' menu is now posted.' : 'still not posted.'));
         }).catch(function () { setStatus('Could not check just now — try again in a bit.'); });
         return;
       }

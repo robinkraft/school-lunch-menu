@@ -9,6 +9,11 @@ parsing, no HTML scraping:
   2. Fetch each month's items via the GraphQL API.
   3. Convert to the repo's data/<month>.json shape and write only
      when the result passes validation.
+  4. Link each month's original PDF in data/months.json. The
+     viewer's "Calendar Without Images" PDF filename is
+     sha256("<menu-id>-grayscale-no-images-en"); the file is
+     rendered on demand via the viewer backend when missing.
+     Best-effort: a missing PDF never fails the run.
 
 Self-check: every run first re-fetches November 2026 lunch and
 breakfast and diffs the generated days against the saved reference
@@ -43,7 +48,11 @@ import urllib.request
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-SITE_CODE = "6466"
+PDF_BASE = "https://docs.isitesoftware.com/snaf-assets/webmenus2-data/pdfs/"
+PDF_API = "https://www.schoolnutritionandfitness.com/webmenus2/api/menuController.php"
+PDF_SUFFIX = "grayscale-no-images"  # the viewer's "Calendar Without Images" PDF
+# The viewer names a menu's PDF by sha256("<menu-id>-grayscale-no-images-en").
+# Verified against both November 2026 PDFs before relying on it.
 PT = ZoneInfo("America/Los_Angeles")
 DISCOVERY_URL = (
     "https://www.schoolnutritionandfitness.com"
@@ -56,12 +65,13 @@ BREAKFAST_TYPE_ID = "6a67d6de037dec741d5250b7"  # found 2026-11-12 via GraphQL m
 NOV_LUNCH_MENU_ID = "6ad0f76e0d331267b8e842a6"
 NOV_BREAKFAST_MENU_ID = "6ae0bf3c1f295ab747f00158"
 DEC_LUNCH_MENU_ID = "6af6329b1f295ab747e98a1b"
+DEC_BREAKFAST_MENU_ID = "6afcc4b4cd25a53f4ca4381c"
 # Month IDs the script already knows, so a failed discovery call never
 # blocks a run. Discovery only adds to this; data/menu-ids.json is the
 # persisted copy.
 DEFAULT_IDS = {
     "lunch": {"2026-11": NOV_LUNCH_MENU_ID, "2026-12": DEC_LUNCH_MENU_ID},
-    "breakfast": {"2026-11": NOV_BREAKFAST_MENU_ID},
+    "breakfast": {"2026-11": NOV_BREAKFAST_MENU_ID, "2026-12": DEC_BREAKFAST_MENU_ID},
 }
 
 UA = {"User-Agent": "school-lunch-menu-refresh/1.0 (+https://robinkraft.github.io/school-lunch-menu/)"}
@@ -147,6 +157,60 @@ def fetch_menu(menu_id):
     if not menu:
         raise RuntimeError(f"GraphQL returned no menu for {menu_id}: {str(payload)[:200]}")
     return menu
+
+
+def pdf_url(menu_id):
+    """The viewer's 'Calendar Without Images' PDF for a menu."""
+    import hashlib
+
+    digest = hashlib.sha256(f"{menu_id}-{PDF_SUFFIX}-en".encode()).hexdigest()
+    return PDF_BASE + digest + ".pdf"
+
+
+def _url_is_pdf(url):
+    req = urllib.request.Request(url, method="HEAD", headers=dict(UA))
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.status == 200 and "pdf" in (resp.headers.get("Content-Type") or "")
+    except Exception:
+        return False
+
+
+def ensure_pdf(menu_id, dry_run=False):
+    """Return the menu's PDF URL if the file exists (or can be
+    generated on the district's side), else None. Best-effort:
+    never raises -- a missing PDF must not fail a menu refresh.
+    In dry-run mode only checks existence, never triggers a render."""
+    import time
+
+    url = pdf_url(menu_id)
+    try:
+        if _url_is_pdf(url):
+            return url
+        if dry_run:
+            return None
+        # Not generated yet: ask the viewer backend to render it
+        # (the same POST the viewer makes on PDF/Print), then poll.
+        job = http_json(
+            "POST",
+            PDF_API + "/pdf",
+            {"id": menu_id, "suffix": PDF_SUFFIX, "language": "en"},
+        )
+        handle = (job or {}).get("jobHandle")
+        if not handle:
+            return None
+        for _ in range(20):
+            time.sleep(3)
+            status = http_json("POST", PDF_API + "/status", {"id": handle})
+            state = (status or {}).get("status")
+            if state == "success":
+                return url if _url_is_pdf(url) else None
+            if state == "error":
+                return None
+        return None
+    except Exception as e:
+        print(f"  WARNING: PDF check for {menu_id} failed ({e}) -- no PDF link.")
+        return None
 
 
 def weekdays_in_month(year, month):
@@ -336,6 +400,7 @@ def main():
                 print(f"  {meal} {month_id}: menu exists but has no items -- not posted yet.")
                 continue
             days, _ = build_days(menu, year, month)
+            pdf_link = ensure_pdf(menu_id, dry_run=args.dry_run)
             # File naming matches the existing November files:
             # november-2026.json (lunch), november-2026-breakfast.json.
             month_name = month_label(year, month).split()[0].lower()
@@ -351,6 +416,16 @@ def main():
             if existing is not None and comparable(existing["days"]) == comparable(days):
                 print(f"  {meal} {month_id}: unchanged.")
                 entry[meal] = rel_path
+                if pdf_link:
+                    if existing.get("source_pdf") != pdf_link:
+                        existing["source_pdf"] = pdf_link
+                        if not args.dry_run:
+                            dump_json(rel_path, existing)
+                        print(f"  {meal} {month_id}: PDF link added.")
+                        changed = True
+                    if entry.get(meal + "_pdf") != pdf_link:
+                        entry[meal + "_pdf"] = pdf_link
+                        changed = True
                 continue
             print(f"  {meal} {month_id}: new/changed -- writing {rel_path}.")
             if existing is not None:
@@ -375,6 +450,9 @@ def main():
                     "source_pdf": None,
                     "verified": f"{now_pt.isoformat()}, nightly refresh from the district API (self-check passed against saved November reference)",
                 }
+            if pdf_link:
+                obj["source_pdf"] = pdf_link
+                entry[meal + "_pdf"] = pdf_link
             if not args.dry_run:
                 dump_json(rel_path, obj)
             entry[meal] = rel_path

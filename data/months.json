@@ -1,1 +1,20 @@
-{"months":[{"breakfast":"data/november-2026-breakfast.json","breakfast_pdf":"https://docs.isitesoftware.com/snaf-assets/webmenus2-data/pdfs/ae248a3696da001d7b01c7db2423a2cb32de4c327c9e02592412752a347adf56.pdf","id":"2026-11","label":"November 2026","lunch":"data/november-2026.json","lunch_pdf":"https://docs.isitesoftware.com/snaf-assets/webmenus2-data/pdfs/97062728620af390fdbb4a85c4ad2122e5989ac636aa4011d6d7036506d87e54.pdf"},{"breakfast":"data/december-2026-breakfast.json","breakfast_pdf":null,"id":"2026-12","label":"December 2026","lunch":"data/december-2026.json","lunch_pdf":null}]}
+{
+ "months": [
+  {
+   "breakfast": "data/november-2026-breakfast.json",
+   "breakfast_pdf": "https://docs.isitesoftware.com/snaf-assets/webmenus2-data/pdfs/ae248a3696da001d7b01c7db2423a2cb32de4c327c9e02592412752a347adf56.pdf",
+   "id": "2026-11",
+   "label": "November 2026",
+   "lunch": "data/november-2026.json",
+   "lunch_pdf": "https://docs.isitesoftware.com/snaf-assets/webmenus2-data/pdfs/97062728620af390fdbb4a85c4ad2122e5989ac636aa4011d6d7036506d87e54.pdf"
+  },
+  {
+   "breakfast": "data/december-2026-breakfast.json",
+   "breakfast_pdf": "https://docs.isitesoftware.com/snaf-assets/webmenus2-data/pdfs/2ed66dca835149f525e350b0729d75c1d0fc4a208696a4a3f3e0f4c7cd3bab6b.pdf",
+   "id": "2026-12",
+   "label": "December 2026",
+   "lunch": "data/december-2026.json",
+   "lunch_pdf": "https://docs.isitesoftware.com/snaf-assets/webmenus2-data/pdfs/b2e93bd80e0d016692b355205740cfa2a2723881b85ee823f164ba2dc1983439.pdf"
+  }
+ ]
+}
