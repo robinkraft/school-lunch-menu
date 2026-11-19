@@ -1,0 +1,50 @@
+# Nightly refresh of the lunch/breakfast menus from the district API.
+#
+# Every night the script (scripts/fetch_menus.py) re-reads the AUSD
+# webmenus2 data as structured JSON (discovery + GraphQL -- no PDF
+# parsing, no HTML scraping) and updates data/*.json + data/months.json
+# when a month is new or changed. GitHub Pages redeploys on push.
+#
+# The script self-checks first: it re-fetches November 2026 and diffs
+# it against the saved reference files. Any mismatch -- or any API
+# failure (the district site has refused cloud connections before) --
+# aborts the run with a non-zero exit, nothing is written, and the
+# site keeps serving its last good data. A failed run shows up in
+# the Actions tab; it never publishes a wrong menu.
+#
+# NOTE: this file must be pushed from a laptop checkout. The Muse
+# GitHub connection cannot push anything under .github/workflows/
+# (it 403s). Site files and scripts/ CAN be pushed through Muse;
+# keep this file out of those snapshots.
+name: Nightly menu refresh
+
+on:
+  schedule:
+    - cron: "0 10 * * *" # 02:00 PST / 03:00 PDT, daily
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Validate only, write nothing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Refresh menus from the district API
+        run: python3 scripts/fetch_menus.py ${{ inputs.dry_run && '--dry-run' || '' }}
+      - name: Commit updated menus
+        run: |
+          git config user.name "menu-refresh"
+          git config user.email "menu-refresh@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || git commit -m "Refresh menus from district API"
+          git push
